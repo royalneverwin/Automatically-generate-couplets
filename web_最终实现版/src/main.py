@@ -203,13 +203,13 @@ def index() :
     return render_template("index.html")
 
 def main():
-    # net.load_state_dict(torch.load(model_path))
+    net.load_state_dict(torch.load(model_path))
     random_up()
     while(1):
         generate_couplets()
 
 if __name__ == '__main__':
-    # net.load_state_dict(torch.load(model_path))
+    net.load_state_dict(torch.load(model_path))
     random_up()
     app.run(port=80, debug=True)
     # main()
