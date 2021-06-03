@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-Hans-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <title>王新昊、张介宾给您对对联 -_-!</title>
+    <!-- <link rel="stylesheet" href="css/index.css?v=1"> -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/jquery/3.6.0/jquery.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+
+    <script src="https://ai.binwang.me/lib/vue.js"></script>
+    <script async src="//pagead2.googlesyndication.com/pagead/js/adsbygoogle.js"></script>
+    <script>
+        (adsbygoogle = window.adsbygoogle || []).push({
+            google_ad_client: "ca-pub-7539390442334663",
+            enable_page_level_ads: true
+        });
+    </script>
+
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=UA-108884732-1"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+
+        function gtag() {
+            dataLayer.push(arguments);
+        }
+
+        gtag('js', new Date());
+
+        gtag('config', 'UA-108884732-1');
+    </script>
+
+    <style>
+        body {
+            /* url("../img/hero-bg.png") */
+            background-image: url('https://github.com/royalneverwin/ouplet-generated-automatically/blob/main/hero-bg.png?raw=true');
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="header">
+            <h1 class="title">欢迎使用我们的自动对对联系统！</h1>
+            <p class="desc">对联tips：十分抱歉我们只能识别简体字，并且断句请用全角逗号分隔。</p>
+            <div class="couplet-button_group">
+                <input type="text" title="输入上联" class="couplet-input" placeholder="请输入上联" v-model="in_str" v-on:keyup.enter="get_output" id="input">
+                <button type="button" class="couplet-btn" v-on:click="get_output">给下联</button>
+            </div>
+        </div>
+        <div class="content">
+            <div id="loading" v-if="loading"></div>
+            <div class="couplet-text couplet-text_up">
+                <div class="couplet-hd">上联：</div>
+                <div class="couplet-bd" v-html="in_html"></div>
+            </div>
+            <div class="couplet-text couplet-text_down">
+                <div class="couplet-hd">下联：</div>
+                <div class="couplet-bd" v-html="out_html" v-show="output"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var VueAds = Vue.component('my-component', {
+            template: '<ins class="adsbygoogle" style="display:block" data-ad-format="fluid" data-ad-layout-key="-go-6+2x-3a-4z" data-ad-client="ca-pub-7539390442334663" data-ad-slot="3017558233"></ins>',
+            mounted: function() {
+                (adsbygoogle = window.adsbygoogle || []).push({});
+            }
+        });
+        {##}
+        {#var userId = localStorage.getItem('user_id');#}
+        {#if (userId == null) {#}
+        {#    userId = uuidv4();#}
+        {#    localStorage.setItem('user_id', userId);#}
+        {#}#}
+
+        var likedIds = localStorage.getItem('liked_ids');
+
+        if (likedIds == null) {
+            likedIds = new Set();
+            saveLikedIds()
+        } else {
+            likedIds = new Set(JSON.parse(likedIds));
+        }
+
+        function saveLikedIds() {
+            localStorage.setItem('liked_ids', JSON.stringify(Array.from(likedIds)))
+        }
+
+
+        function get(url, cb) {
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+                if (xmlhttp.readyState == XMLHttpRequest.DONE) {
+                    if (xmlhttp.status == 200) {
+                        data = JSON.parse(xmlhttp.responseText);
+                        cb(data)
+                    }
+                }
+            };
+            xmlhttp.open("GET", url);
+            xmlhttp.send();
+        }
+
+
+        function post(url, req, cb) {
+            var xmlhttp = new XMLHttpRequest();
+            xmlhttp.onreadystatechange = function() {
+                if (xmlhttp.readyState == XMLHttpRequest.DONE) {
+                    if (xmlhttp.status == 200) {
+                        data = JSON.parse(xmlhttp.responseText);
+                        cb(data)
+                    }
+                }
+            };
+            xmlhttp.open("POST", url);
+            xmlhttp.setRequestHeader("Content-Type", "application/json")
+            xmlhttp.send(JSON.stringify(req));
+        }
+
+        var app = new Vue({
+            components: {
+                'vue-ads': VueAds
+            },
+            el: '#app',
+            data: {
+                in_str: '',
+                in_html: '',
+                output: '',
+                out_html: '',
+                couplets: [],
+                loading: false,
+                uploading: false,
+                uploaded: false,
+            },
+            watch: {
+                in_str: function(val, oldVal) {
+                    this.up_couplet(val);
+                    this.output = "";
+                    self.uploaded = false;
+                }
+            },
+
+            methods: {
+                get_output: async function() {
+                    self = this;
+                    self.output = "";
+                    self.loading = true;
+                    self.output = generate_cpl(self.in_str);
+                    // while (self.loading) {};
+                    await sleep(2000);
+                    self.output = $("#answer").html();
+                    self.out_html = self.str_to_html(self.output);
+                    self.loading = false;
+                    // tracker.send('event', 'Couplet', 'play');
+
+                },
+                str_to_html: function(str) {
+                    var html = '';
+                    if (!!str) {
+                        for (var i = 0; i < str.length; i++) {
+                            html += '<span>' + str.charAt(i) + '</span>';
+                        }
+                    }
+                    return html;
+                },
+                up_couplet: function(val) {
+                    this.in_html = this.str_to_html(val);
+                },
+                upload_couplet: function() {
+                    self = this;
+                    var couplet = {
+                        userId: userId,
+                        up: this.in_str,
+                        down: this.output
+                    };
+                    self.uploading = true;
+                    post("http://proxy.binwang.me:8084/couplet", couplet, function(data) {
+                            self.uploading = false;
+                            self.uploaded = true;
+                            likedIds.add(data.id);
+                            saveLikedIds();
+                            self.get_couplets();
+                        })
+                        // tracker.send('event', 'Couplet', 'upload');
+                },
+
+                like_couplet: function(couplet_id) {
+                    self = this;
+                    if (likedIds.has(couplet_id)) {
+                        return
+                    }
+                    get("http://proxy.binwang.me:8084/like_couplet?user_id=" + userId +
+                            "&couplet_id=" + couplet_id,
+                            function(data) {
+                                for (var i = 0; i < self.couplets.length; i++) {
+                                    if (self.couplets[i].id == couplet_id) {
+                                        self.couplets[i].likedCount = data.likedCount;
+                                        self.couplets[i].liked = true;
+                                        likedIds.add(couplet_id);
+                                        saveLikedIds()
+                                    }
+                                }
+                            })
+                        // tracker.send('event', 'Couplet', 'like');
+                },
+
+                get_couplets: function() {
+                    self = this;
+                    get("http://proxy.binwang.me:8084/couplets", function(data) {
+                        self.couplets = [];
+                        for (var i = 0; i < data.couplets.length; i++) {
+                            if (i == 3) {
+                                self.couplets.push({
+                                    id: 0
+                                });
+                            }
+                            self.couplets.push(data.couplets[i]);
+                        }
+                        for (var j = 0; j < self.couplets.length; j++) {
+                            self.couplets[j].liked = !!likedIds.has(self.couplets[j].id);
+                        }
+                    });
+                },
+            }
+        })
+
+        generate_cpl = (up_cpl) => {
+            var sendData = {
+                up_cpl
+            };
+            var ret;
+            // AJAX
+            $.post('/generate_cpl', sendData, function(rtnSvr) {
+                $("#answer").html(rtnSvr);
+                // app.output = rtnSvr;
+                // app.out_html = app.str_to_html(app.output);
+                // app.loading = false;
+                // return rtnSvr;
+            })
+        }
+
+        random_up = () => {
+            $.post('/random_up', null, function(rtnSvr) {
+                // $("#input").val(rtnSvr.up_cpl);
+                // alert(rtnSvr.up_cpl);
+                // alert(rtnSvr.down_cpl);
+                app.in_str = rtnSvr.up_cpl;
+                app.get_output();
+                // app.output = rtnSvr.down_cpl;
+                // app.out_html = app.str_to_html(app.output);
+            })
+        }
+
+        function sleep(time) {
+            return new Promise((resolve) => setTimeout(resolve, time));
+        }
+
+        random_up();
+    </script>
+
+    <div id="answer" visible="false"></div>
+</body>
+<!-- <script src="https://ai.binwang.me/lib/uuidv4.js"></script> -->
+
+</html>
